@@ -42,7 +42,6 @@ export default function App() {
   const saveEdit = () => {
     const trimmed = editText.trim()
     if (trimmed === '') {
-      // Saving empty text deletes the todo
       deleteTodo(editingId)
     } else {
       setTodos(todos.map((t) => (t.id === editingId ? { ...t, text: trimmed } : t)))
@@ -61,13 +60,21 @@ export default function App() {
     if (e.key === 'Escape') cancelEdit()
   }
 
+  // NFR2: allow keyboard users to enter edit mode via Enter or F2 on the todo button
+  const handleTodoKeyDown = (e, todo) => {
+    if (e.key === 'F2') {
+      e.preventDefault()
+      startEdit(todo)
+    }
+  }
+
   const visible = todos.filter((t) =>
     filter === 'active' ? !t.done : filter === 'completed' ? t.done : true,
   )
   const remaining = todos.filter((t) => !t.done).length
 
   const tabClass = (name) =>
-    `px-3 py-1 rounded-md text-sm font-medium transition ${
+    `px-3 py-1 rounded-md text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
       filter === name
         ? 'bg-indigo-600 text-white'
         : 'text-slate-600 hover:bg-slate-200'
@@ -84,26 +91,30 @@ export default function App() {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && addTodo()}
             placeholder="What needs doing?"
-            className="flex-1 px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="flex-1 px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
           />
           <button
             onClick={addTodo}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-md font-medium hover:bg-indigo-700 transition"
+            className="px-4 py-2 bg-indigo-600 text-white rounded-md font-medium hover:bg-indigo-700 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
           >
             Add
           </button>
         </div>
-        <div className="flex gap-2 mb-4">
-          <button onClick={() => setFilter('all')} className={tabClass('all')}>
-            All
-          </button>
-          <button onClick={() => setFilter('active')} className={tabClass('active')}>
-            Active
-          </button>
-          <button onClick={() => setFilter('completed')} className={tabClass('completed')}>
-            Completed
-          </button>
+
+        {/* NFR3: aria-pressed exposes selected state to screen readers */}
+        <div className="flex gap-2 mb-4" role="group" aria-label="Filter todos">
+          {['all', 'active', 'completed'].map((name) => (
+            <button
+              key={name}
+              onClick={() => setFilter(name)}
+              className={tabClass(name)}
+              aria-pressed={filter === name}
+            >
+              {name.charAt(0).toUpperCase() + name.slice(1)}
+            </button>
+          ))}
         </div>
+
         <ul className="space-y-2">
           {visible.map((todo) => (
             <li
@@ -119,25 +130,29 @@ export default function App() {
                   onChange={(e) => setEditText(e.target.value)}
                   onKeyDown={handleEditKeyDown}
                   onBlur={saveEdit}
-                  className="flex-1 px-1 py-0.5 border-b-2 border-indigo-500 outline-none bg-transparent text-slate-800"
+                  aria-label={`Editing: ${todo.text}`}
+                  className="flex-1 px-1 py-0.5 border-b-2 border-indigo-500 outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 bg-transparent text-slate-800"
                 />
               ) : (
                 // ---- View mode ----
+                // NFR2: F2 lets keyboard users enter edit mode without a mouse
+                // Double-click still works for mouse users
                 <button
                   onClick={() => toggleTodo(todo.id)}
                   onDoubleClick={() => startEdit(todo)}
-                  className={`flex-1 text-left ${
+                  onKeyDown={(e) => handleTodoKeyDown(e, todo)}
+                  aria-label={`${todo.text}${todo.done ? ', completed' : ''}. Press F2 to edit.`}
+                  className={`flex-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded ${
                     todo.done ? 'line-through text-slate-400' : 'text-slate-800'
                   }`}
-                  title="Double-click to edit"
                 >
                   {todo.text}
                 </button>
               )}
               <button
                 onClick={() => deleteTodo(todo.id)}
-                className="text-slate-400 hover:text-red-500 text-lg font-bold px-2"
-                aria-label="Delete todo"
+                className="text-slate-400 hover:text-red-500 text-lg font-bold px-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
+                aria-label={`Delete ${todo.text}`}
               >
                 ×
               </button>
