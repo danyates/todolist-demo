@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 
 export default function App() {
   const [todos, setTodos] = useState([
@@ -8,6 +8,18 @@ export default function App() {
   ])
   const [input, setInput] = useState('')
   const [filter, setFilter] = useState('all')
+
+  // --- Inline edit state ---
+  const [editingId, setEditingId] = useState(null)
+  const [editText, setEditText] = useState('')
+  const editInputRef = useRef(null)
+
+  // Focus the edit input whenever we enter edit mode
+  useEffect(() => {
+    if (editingId !== null) {
+      editInputRef.current?.focus()
+    }
+  }, [editingId])
 
   const addTodo = () => {
     const text = input.trim()
@@ -21,10 +33,37 @@ export default function App() {
 
   const deleteTodo = (id) => setTodos(todos.filter((t) => t.id !== id))
 
+  // --- Inline edit handlers ---
+  const startEdit = (todo) => {
+    setEditingId(todo.id)
+    setEditText(todo.text)
+  }
+
+  const saveEdit = () => {
+    const trimmed = editText.trim()
+    if (trimmed === '') {
+      // Saving empty text deletes the todo
+      deleteTodo(editingId)
+    } else {
+      setTodos(todos.map((t) => (t.id === editingId ? { ...t, text: trimmed } : t)))
+    }
+    setEditingId(null)
+    setEditText('')
+  }
+
+  const cancelEdit = () => {
+    setEditingId(null)
+    setEditText('')
+  }
+
+  const handleEditKeyDown = (e) => {
+    if (e.key === 'Enter') saveEdit()
+    if (e.key === 'Escape') cancelEdit()
+  }
+
   const visible = todos.filter((t) =>
     filter === 'active' ? !t.done : filter === 'completed' ? t.done : true,
   )
-
   const remaining = todos.filter((t) => !t.done).length
 
   const tabClass = (name) =>
@@ -38,7 +77,6 @@ export default function App() {
     <div className="min-h-screen bg-slate-100 flex items-start justify-center py-16 px-4">
       <div className="w-full max-w-md bg-white rounded-xl shadow-md p-6">
         <h1 className="text-2xl font-bold text-slate-800 mb-4">Todo List</h1>
-
         <div className="flex gap-2 mb-4">
           <input
             type="text"
@@ -55,7 +93,6 @@ export default function App() {
             Add
           </button>
         </div>
-
         <div className="flex gap-2 mb-4">
           <button onClick={() => setFilter('all')} className={tabClass('all')}>
             All
@@ -67,21 +104,36 @@ export default function App() {
             Completed
           </button>
         </div>
-
         <ul className="space-y-2">
           {visible.map((todo) => (
             <li
               key={todo.id}
               className="flex items-center gap-3 px-3 py-2 rounded-md border border-slate-200 hover:bg-slate-50"
             >
-              <button
-                onClick={() => toggleTodo(todo.id)}
-                className={`flex-1 text-left ${
-                  todo.done ? 'line-through text-slate-400' : 'text-slate-800'
-                }`}
-              >
-                {todo.text}
-              </button>
+              {editingId === todo.id ? (
+                // ---- Edit mode ----
+                <input
+                  ref={editInputRef}
+                  type="text"
+                  value={editText}
+                  onChange={(e) => setEditText(e.target.value)}
+                  onKeyDown={handleEditKeyDown}
+                  onBlur={saveEdit}
+                  className="flex-1 px-1 py-0.5 border-b-2 border-indigo-500 outline-none bg-transparent text-slate-800"
+                />
+              ) : (
+                // ---- View mode ----
+                <button
+                  onClick={() => toggleTodo(todo.id)}
+                  onDoubleClick={() => startEdit(todo)}
+                  className={`flex-1 text-left ${
+                    todo.done ? 'line-through text-slate-400' : 'text-slate-800'
+                  }`}
+                  title="Double-click to edit"
+                >
+                  {todo.text}
+                </button>
+              )}
               <button
                 onClick={() => deleteTodo(todo.id)}
                 className="text-slate-400 hover:text-red-500 text-lg font-bold px-2"
@@ -97,7 +149,6 @@ export default function App() {
             </li>
           )}
         </ul>
-
         <div className="mt-4 text-sm text-slate-500">
           {remaining} {remaining === 1 ? 'item' : 'items'} left
         </div>
